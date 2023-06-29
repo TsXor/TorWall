@@ -66,6 +66,7 @@ static bool state = false;
 #define OPTION_FORCE_SOCKS4a_ONLY   "ForceSOCKS4aOnly"
 bool option_force_web_only = true;
 bool option_force_socks4a  = true;
+int redirect_port = TOR_PORT;
 
 // Start/stop Tor:
 static void start_tor(void)

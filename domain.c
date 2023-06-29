@@ -31,6 +31,10 @@
 #define rand16()                    \
     (rand() & 0xFF) | ((rand() & 0xFF) << 8)
 
+#if defined(_MSC_VER)
+typedef LONG_PTR ssize_t;
+#endif
+
 // Domain blacklist:
 struct blacklist
 {

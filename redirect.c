@@ -20,8 +20,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+// workarounds
+#include "workarounds/packed-struct.h"
+#include "workarounds/VLA.h"
+#define FLUSHDNS_USE_CMD_WORKAROUND
+#include "workarounds/flush-dns.h"
 
-#include "windivert.h"
+#include "include/windivert.h"
 
 #include "domain.h"
 #include "main.h"
@@ -34,26 +39,26 @@
 
 // SOCKS4a headers
 #define SOCKS_USERID_SIZE   (256 + 8)
-struct socks4a_req
+PACKED_STRUCT(socks4a_req)
 {
     uint8_t vn;
     uint8_t cd;
     uint16_t dst_port;
     uint32_t dst_addr;
     char userid[SOCKS_USERID_SIZE];
-} __attribute__((__packed__));
+};
 
-struct socks4a_rep
+PACKED_STRUCT(socks4a_rep)
 {
     uint8_t vn;
     uint8_t cd;
     uint16_t port;
     uint32_t addr;
-} __attribute__((__packed__));
+};
 
 // DNS headers
 #define DNS_MAX_NAME    254
-struct dnshdr
+PACKED_STRUCT(dnshdr)
 {
     uint16_t id;
     uint16_t options;
@@ -61,15 +66,15 @@ struct dnshdr
     uint16_t ancount;
     uint16_t nscount;
     uint16_t arcount;
-} __attribute__((__packed__));
+};
 
-struct dnsq
+PACKED_STRUCT(dnsq)
 {
     uint16_t type;
     uint16_t class;
-} __attribute__((__packed__));
+};
 
-struct dnsa
+PACKED_STRUCT(dnsa)
 {
     uint16_t name;
     uint16_t type;
@@ -77,7 +82,7 @@ struct dnsa
     uint32_t ttl;
     uint16_t length;
     uint32_t addr;
-} __attribute__((__packed__));
+};
 
 // Pended SYN.
 struct syn
@@ -95,7 +100,7 @@ struct syn
 #define STATE_ESTABLISHED           4
 #define STATE_FIN_WAIT              5
 #define STATE_WHITELISTED           0xFF
-struct connection
+PACKED_STRUCT(connection)
 {
     uint8_t state;
     uint16_t local_port;
@@ -105,7 +110,7 @@ struct connection
     uint32_t if_idx;
     uint32_t sub_if_idx;
     struct syn *syn;
-} __attribute__((__packed__));
+};
 
 // Cleanup.
 struct cleanup
@@ -167,12 +172,7 @@ dir_error:
         warning("failed to load library \"%s\"", dllname);
         exit(EXIT_FAILURE);
     }
-    BOOL WINAPI (*DnsFlushResolverCache)(void);
-    DnsFlushResolverCache =
-        (BOOL WINAPI (*)(void))GetProcAddress(lib, "DnsFlushResolverCache");
-    if (DnsFlushResolverCache == NULL || !DnsFlushResolverCache())
-        warning("failed to flush DNS cache");
-    FreeLibrary(lib);
+    if (!DnsFlushResolverCache()) warning("failed to flush DNS cache");
 }
 
 // Send a packet:
@@ -500,7 +500,7 @@ static void handle_syn(HANDLE handle, struct connection *conn)
             // "glue" the TCP connection to a SOCKS4a connection.
             tcphdr->SeqNum = htonl(ntohl(tcphdr->SeqNum) -
                 sizeof(struct socks4a_req));
-            tcphdr->DstPort = htons(TOR_PORT);
+            tcphdr->DstPort = htons(redirect_port);
             syn->addr.Network.IfIdx = 1;            // Loopback
             syn->addr.Network.SubIfIdx = 0;
             syn->addr.Loopback = 1;
@@ -586,8 +586,8 @@ static void redirect_tcp(HANDLE handle, PWINDIVERT_ADDRESS addr,
 #endif
 
     if (addr->Loopback &&
-            ntohs(tcphdr->SrcPort) != TOR_PORT &&
-            ntohs(tcphdr->DstPort) != TOR_PORT)
+            ntohs(tcphdr->SrcPort) != redirect_port &&
+            ntohs(tcphdr->DstPort) != redirect_port)
     {
         // Allow unrelated loopback traffic.
         ;
@@ -635,7 +635,7 @@ static void redirect_tcp(HANDLE handle, PWINDIVERT_ADDRESS addr,
         }
 
         // Redirect this packet to Tor
-        tcphdr->DstPort = htons(TOR_PORT);
+        tcphdr->DstPort = htons(redirect_port);
         addr->Network.IfIdx = 1;            // Loopback
         addr->Network.SubIfIdx = 0;
         addr->Loopback = 1;
@@ -1023,7 +1023,7 @@ static void handle_dns(HANDLE handle, PWINDIVERT_ADDRESS addr,
         return;
     len += sizeof(WINDIVERT_IPHDR) + sizeof(WINDIVERT_UDPHDR);
 
-    char buf[len + 8];                      // 8 bytes extra.
+    VLA_DECL(buf, char, len + 8);           // 8 bytes extra.
     PWINDIVERT_IPHDR riphdr = (PWINDIVERT_IPHDR)buf;
     PWINDIVERT_UDPHDR rudphdr = (PWINDIVERT_UDPHDR)(riphdr + 1);
     struct dnshdr *rdnshdr = (struct dnshdr *)(rudphdr + 1);

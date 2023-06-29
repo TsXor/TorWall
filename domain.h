@@ -20,6 +20,7 @@
 #define __DOMAIN_H
 
 #include <stdint.h>
+#include "workarounds/packed-struct.h"
 
 #define ADDR_BASE               0x2C000000      // 44.0.0.0/8 (AMPRNet)
 #define ADDR_MAX                0x2CFFFFFF
@@ -31,12 +32,12 @@ static inline bool is_fake_addr(uint32_t addr)
     return addr >= ADDR_BASE && addr <= ADDR_MAX;
 }
 
-struct name
+PACKED_STRUCT(name)
 {
     LONG ref_count;
     uint8_t msb;
     char name[];
-} __attribute__((__packed__));
+};
 
 extern void domain_init(void);
 extern uint32_t domain_lookup_addr(const char *name);
