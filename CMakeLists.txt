@@ -2,23 +2,49 @@ cmake_minimum_required(VERSION 3.15)
 
 project(Tallow)
 
-set(ARCH "x64")
+set(AVAILABLE_ARCH "x32" "x64")
+# default to x64
+if (NOT DEFINED ARCH)
+    message(STATUS "default ARCH to x64")
+    set(ARCH "x64")
+endif()
+# architecture check
+list(FIND AVAILABLE_ARCH ${ARCH} avail_state)
+if (${avail_state} EQUAL -1)
+    message(FATAL_ERROR "unsupported architecture")
+endif()
+if(${ARCH} STREQUAL "x64" AND ${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "x86")
+    message(FATAL_ERROR "cannot make 64-bit program on 32-bit toolchain")
+endif()
 
-function(import_extern_dll target_name dll_name)
-    if(${ARGC} EQUAL 3)
-        list(GET ARGN 0 path)
-        add_library(${target_name} SHARED IMPORTED)
-        set_property(TARGET ${target_name} PROPERTY
-                     IMPORTED_LOCATION ${path}/${dll_name}.dll)
-        set_property(TARGET ${target_name} PROPERTY
-                     IMPORTED_IMPLIB ${path}/${dll_name}.lib)
+function(import_extern_dll target_name dll_name path)
+    if(MINGW)
+        set(lib_type MODULE)
     else()
-        add_library(${target_name} SHARED IMPORTED)
-        set_property(TARGET ${target_name} PROPERTY
-                     IMPORTED_LOCATION ${dll_name}.dll)
-        set_property(TARGET ${target_name} PROPERTY
-                     IMPORTED_IMPLIB ${dll_name}.lib)
+        set(lib_type SHARED)
     endif()
+    if(${path} STREQUAL MS_BUILTIN)
+        if(MINGW)
+            if(${ARCH} STREQUAL "x32" AND ${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL "AMD64")
+                set(dll_path C:/Windows/SysWoW64/${dll_name}.dll)
+                set(lib_path C:/Windows/SysWoW64/${dll_name}.lib)
+            else()
+                set(dll_path C:/Windows/System32/${dll_name}.dll)
+                set(lib_path C:/Windows/System32/${dll_name}.lib)
+            endif()
+        else()
+            set(dll_path ${dll_name}.dll)
+            set(lib_path ${dll_name}.lib)
+        endif()
+    else()
+        set(dll_path ${path}/${dll_name}.dll)
+        set(lib_path ${path}/${dll_name}.lib)
+    endif()
+    add_library(${target_name} ${lib_type} IMPORTED)
+    set_property(TARGET ${target_name} PROPERTY
+                IMPORTED_LOCATION ${dll_path})
+    set_property(TARGET ${target_name} PROPERTY
+                IMPORTED_IMPLIB ${lib_path})
 endfunction()
 
 function(target_uac_admin target_name)
@@ -26,14 +52,14 @@ function(target_uac_admin target_name)
         set_target_properties(${target_name} PROPERTIES
                               LINK_FLAGS " /MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\" ")
     else()
-        target_sources(${target_name} PRIVATE uac.manifest)
+        target_sources(${target_name} PRIVATE uac.rc)
     endif()
 endfunction()
 
 
-# import window dlls
-import_extern_dll(comctl comctl32)
-import_extern_dll(winsock ws2_32)
+# import Windows dlls
+import_extern_dll(comctl comctl32 MS_BUILTIN)
+import_extern_dll(winsock ws2_32 MS_BUILTIN)
 
 # import WinDivert
 set(WINDIVERT_PATH ${CMAKE_CURRENT_LIST_DIR}/contrib/WinDivert)
