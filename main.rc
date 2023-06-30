@@ -18,6 +18,6 @@
 
 #include "winuser.h"
 
-IDI_APPLICATION ICON "tallow.ico"
-TOR_ICON ICON "tor.ico"
-TALLOW_ICON_SMALL ICON "tallow_small.ico"
+IDI_APPLICATION ICON "res/tallow.ico"
+TOR_ICON ICON "res/tor.ico"
+TALLOW_ICON_SMALL ICON "res/tallow_small.ico"
