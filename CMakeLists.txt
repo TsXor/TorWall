@@ -8,6 +8,7 @@ if (NOT DEFINED ARCH)
     message(STATUS "default ARCH to x64")
     set(ARCH "x64")
 endif()
+string(SUBSTRING ${ARCH} 1 -1 ARCH_N)
 # architecture check
 list(FIND AVAILABLE_ARCH ${ARCH} avail_state)
 if (${avail_state} EQUAL -1)
@@ -74,8 +75,8 @@ target_include_directories(redirect PRIVATE ${WINDIVERT_PATH})
 # main program
 add_executable(${PROJECT_NAME} WIN32 main.c)
 target_uac_admin(${PROJECT_NAME})
-target_sources(${PROJECT_NAME} PRIVATE main.rc) # use rc
-target_sources(${PROJECT_NAME} PRIVATE main.manifest)
+target_sources(${PROJECT_NAME} PRIVATE res/compiled/main.rc) # use rc
+target_sources(${PROJECT_NAME} PRIVATE res/compiled/main.manifest)
 target_link_libraries(${PROJECT_NAME} comctl)
 target_link_libraries(${PROJECT_NAME} winsock)
 target_link_libraries(${PROJECT_NAME} domain)
@@ -83,4 +84,12 @@ target_link_libraries(${PROJECT_NAME} redirect)
 
 # install
 install(TARGETS ${PROJECT_NAME}
+        DESTINATION ${CMAKE_CURRENT_LIST_DIR}/install/bin)
+# copy WinDivert
+install(FILES ${WINDIVERT_PATH}/${ARCH}/WinDivert.dll
+              ${WINDIVERT_PATH}/${ARCH}/WinDivert${ARCH_N}.sys
+        DESTINATION ${CMAKE_CURRENT_LIST_DIR}/install/bin)
+# copy resources
+file(GLOB res_files ${CMAKE_CURRENT_LIST_DIR}/res/installed/*)
+install(FILES ${res_files}
         DESTINATION ${CMAKE_CURRENT_LIST_DIR}/install/bin)
