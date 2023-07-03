@@ -78,7 +78,7 @@ static inline void unlock(HANDLE lock)
 }
 
 // (Strong) random number:
-errno_t __cdecl rand_s(unsigned int *);
+errno_t __cdecl rand_s(unsigned int *); // stdlib.h
 static inline unsigned random(void)
 {
     unsigned r;

@@ -243,7 +243,11 @@ extern void redirect_init(void)
     if (!filter_read("traffic.deny", filter, sizeof(filter)))
     {
         // Use the default filter:
+#ifdef DEFAULT_PASS_NONDIVERTED_PACKETS
+        const char *default_filter = "";
+#else
         const char *default_filter = "ipv6 or (not tcp and udp.DstPort != 53)";
+#endif
         size_t len = strlen(default_filter);
         if (len+1 > sizeof(filter))
         {
